@@ -14,11 +14,21 @@ DNSClient =
     -- 信号強度
     connect_power = 100,
 
+    getDNSServerAddress = function (self)
+        component.modem.open(self.DNS_server_port)
+        component.modem.broadcast(54)
+        local _, _, _, _, _, address = event.pull(1, "modem_message")
+        self.DNS_server_address = address
+        component.modem.close(self.DNS_server_port)
+    end,
+
     getName = function (self, name)
 
+        if self.DNS_server_address == nil then self:getDNSServerAddress() end
+
         if self.DNS_server_address == nil then
-            print('DNSサーバーのアドレスが設定されていません.')
-            print('DNS_server_address フィールドに代入して設定してください.')
+            print('DNS サービスが応答しませんでした.')
+            print('"dns-server" を任意のコンピュータで起動してください.')
             return
         end
 
@@ -30,6 +40,13 @@ DNSClient =
         local _, _, _, _, _, address = event.pull(1, "modem_message")
 
         component.modem.close(self.DNS_server_port)
+
+        if address == nil then
+            print('DNS サービスが応答しませんでした.')
+            print('1) "dns-server" を任意のコンピュータで起動してください.')
+            print('2) DNS サーバーに DNS 情報を設定してください.')
+            return
+        end
 
         return address
 

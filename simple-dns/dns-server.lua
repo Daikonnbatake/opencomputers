@@ -13,8 +13,11 @@ do
         -- 信号強度
         connect_power = 100,
 
-        -- イベントID
-        event_id = 0,
+        -- DNS 処理イベントID
+        dns_event_id = 0,
+
+        -- DNS サーバーのアドレス配信イベント ID
+        address_event_id = 0,
 
 
         -- DNS サーバーを起動させる.
@@ -30,12 +33,27 @@ do
             end
 
             component.modem.open(53)
+            component.modem.open(54)
             component.modem.setStrength(self.connect_power)
-            self.event_id =
+
+            -- DNS 処理イベント
+            self.dns_event_id =
                 event.listen("modem_message", function (...)
                     local _, _, remote_address, port, _, message = ...
-                    component.modem.send(remote_address, port, self.DNSdict[message])
+                    if port == 53 then
+                        component.modem.send(remote_address, port, self.DNSdict[message])
+                    end
                 end)
+
+            -- DNS サーバーのアドレス配信
+            self.address_event_id =
+                event.listen("modem_message", function (...)
+                    local _, self_address, remote_address, port, _, message = ...
+                    if port == 54 then
+                        component.modem.send(remote_address, 53, self_address)
+                    end
+                end)
+
 
             print('\nDNS サービスを開始しました.\n')
             print('- help -------------------')
@@ -102,7 +120,8 @@ do
 
                 -- DNS 停止 コマンド
                 if command == 'quit' then
-                    event.cancel(self.event_id)
+                    event.cancel(self.dns_event_id)
+                    event.cancel(self.address_event_id)
                     print('DNS サービスを停止しました.\n')
 
                     break
