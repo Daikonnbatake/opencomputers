@@ -12,7 +12,7 @@ DNSClient =
     DNS_server_port = 53,
 
     -- 信号強度
-    connect_power = 100,
+    connect_power = 100000,
 
     getDNSServerAddress = function (self)
         component.modem.open(self.DNS_server_port)

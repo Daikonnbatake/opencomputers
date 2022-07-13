@@ -11,7 +11,7 @@ do
         DNSdictA = {},
 
         -- 信号強度
-        connect_power = 100,
+        connect_power = 100000,
 
         -- DNS 処理イベントID
         dns_event_id = 0,
