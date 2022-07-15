@@ -1,83 +1,74 @@
+event = require('event')
 require('locomotive_controler')
 
 -- 自動操縦クラス. インスタンス化不可.
 LocomotiveAutoControler =
 {
-    -- os API
-    OS = require('os'),
+    -- 自動操縦イベントのID
+    auto_control_event_id = 0,
 
-    -- computer API
-    COMPUTER = require('computer'),
-
-    -- thread API
-    THREAD = require('thread'),
-
-    -- 機関車操縦クラス
-    LOCOMOTIVE_CONTROLER = LocomotiveControler,
-
-    -- 自動操縦スレッドのスレッドハンドル
-    thread_handle = nil,
-
-    -- 目標時速(number)
+    -- 目標時速(整数)
     target_speed = 0,
 
+    -- 後退フラグ
+    back = false,
 
-    -- 自動操縦スレッド
-    auto_control_thread = function (self)
 
-        print('自動操縦を開始')
-        print('--- 情報 ---')
-        for k, v in pairs(self.LOCOMOTIVE_CONTROLER) do print(k, v) end
-        print('------------')
+    -- 自動速度制御
+    auto_speed_control = function (self)
 
-        self.LOCOMOTIVE_CONTROLER:init()
+        local target_speed = self.target_speed
+        local current_speed = LocomotiveControler:getSpeed()
+        local speed_diff = current_speed - target_speed
 
-        -- 最終更新時間をメモする
-        local last_update = 0
+        -- 停止
+        if 5 > target_speed then
+            LocomotiveControler:setBrake(1)
+            LocomotiveControler:setThrottle(0)
 
-        while true do
+        -- 進行
+        else
+            -- 速度が目標時速より 5km/h 速ければブレーキをかける
+            if 5 < speed_diff then
+                LocomotiveControler:setThrottle(0)
+                LocomotiveControler:addBrake(0.1)
 
-            -- もし前回の更新から 0.05 秒以上経過していたなら制御を行う
-            if 0.05 < self.COMPUTER.uptime() - last_update then
+                -- 目標速度より真に速いかつ速すぎないなら惰性運転
+            elseif 0 < speed_diff then
+                LocomotiveControler:setThrottle(0)
+                LocomotiveControler:setBrake(0)
 
-                local target_speed = self.target_speed
-                local current_speed = self.LOCOMOTIVE_CONTROLER:getSpeed()
-
-                if current_speed < target_speed then
-
-                    self.LOCOMOTIVE_CONTROLER:setBrake(0)
-                    self.LOCOMOTIVE_CONTROLER:addThrottle(0.3)
-
+                -- 速度が目標時速より遅ければスロットルを上げる
+            else
+                if self.back then
+                    LocomotiveControler:addThrottle(-0.1)
                 else
-
-                    self.LOCOMOTIVE_CONTROLER:setThrottle(0)
-                    self.LOCOMOTIVE_CONTROLER:addBrake(0.3)
-
+                    LocomotiveControler:addThrottle(0.1)
                 end
-
-                last_update = self.COMPUTER.uptime()
+                LocomotiveControler:setBrake(0)
 
             end
-
-            self.OS.sleep(0.01)
-
         end
-
     end,
 
+    -- 自動操縦の再帰
+    auto_control = function (self)
+        return event.timer(0.1, function ()
+            self:auto_speed_control()
+            self.auto_control_event_id = self:auto_control()
+
+        end)
+    end,
 
     -- 自動操縦開始
-    start_auto_control = function (self)
-
-        self.thread_handle = self.THREAD.create(self.auto_control_thread, self)
+    start = function (self)
+        self.auto_control_event_id = self:auto_control()
 
     end,
 
-
     -- 自動操縦中断
-    stop_auto_control = function (self)
-
-        self.thread_handle.suspend()
+    stop = function (self)
+        event.cancel(self.auto_control_event_id)
 
     end,
 }
